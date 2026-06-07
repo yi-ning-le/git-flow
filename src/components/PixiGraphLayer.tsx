@@ -1,7 +1,7 @@
 import { memo, useEffect, useRef, useState } from 'react'
 import type { MouseEventHandler, PointerEventHandler, ReactNode } from 'react'
-import { PixiGraphRenderer } from '../pixi/PixiGraphRenderer'
 import type { GraphRenderData } from '../pixi/graphRenderData'
+import type { PixiGraphRenderer } from '../pixi/PixiGraphRenderer'
 
 type PixiGraphLayerProps = {
   data: GraphRenderData
@@ -34,36 +34,47 @@ function PixiGraphLayerComponent({
   useEffect(() => {
     const host = hostRef.current
     if (!host) return undefined
+    const hostElement = host
 
     let disposed = false
-    const renderer = new PixiGraphRenderer()
+    let renderer: PixiGraphRenderer | null = null
 
-    renderer
-      .init(host, data.width, data.height)
-      .then(() => {
+    async function setupRenderer() {
+      try {
+        const { PixiGraphRenderer } = await import('../pixi/PixiGraphRenderer')
         if (disposed) {
-          renderer.destroy()
           return
         }
 
-        rendererRef.current = renderer
+        const nextRenderer = new PixiGraphRenderer()
+        renderer = nextRenderer
+        await nextRenderer.init(hostElement, data.width, data.height)
+
+        if (disposed) {
+          nextRenderer.destroy()
+          return
+        }
+
+        rendererRef.current = nextRenderer
         onAvailabilityChange?.(true)
-        renderer.render(latestDataRef.current)
-      })
-      .catch(() => {
-        renderer.destroy()
+        nextRenderer.render(latestDataRef.current)
+      } catch {
+        renderer?.destroy()
         if (!disposed) {
           setFailed(true)
           onAvailabilityChange?.(false)
         }
-      })
+      }
+    }
+
+    void setupRenderer()
 
     return () => {
       disposed = true
       if (rendererRef.current === renderer) {
         rendererRef.current = null
       }
-      renderer.destroy()
+      renderer?.destroy()
     }
   }, [data.height, data.width, onAvailabilityChange])
 
