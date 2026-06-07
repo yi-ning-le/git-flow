@@ -1,0 +1,12 @@
+pre-commit:
+  parallel: false
+  jobs:
+    - name: format
+      run: bun run format
+      stage_fixed: true
+    - name: build
+      run: bun run build
+    - name: test
+      run: bun run test
+    - name: lint
+      run: bun run lint
